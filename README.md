@@ -1,6 +1,8 @@
 # Tremblay et al. 2024 custom code and data
 
-This repository contains the custom code and data generated for the Tremblay et al. manuscript (in review) within the `preprocess/` and `analyses/` folders. The `data/` folder contains additional processed data not included in the supplementary of the published article. Please get in contact with the first author regarding any doubts or questions (`benjmtremblay [at] gmail [dot] com`). 
+This repository contains the custom code and data generated for the Tremblay et al. Nat Commun. 2024 manuscript within the `preprocess/` and `analyses/` folders. The `data/` folder contains additional processed data not included in the supplementary of the published article. Please get in contact with the first author regarding any doubts or questions (`benjmtremblay [at] gmail [dot] com`). 
+
+The original data, as well as some processed data, can be found in the GEO repository: [GSE250331](https://www.ncbi.xyz/geo/query/acc.cgi?acc=GSE250331). Additional supplementary can also be found in the supplementary information section of the [online article](https://www.nature.com/articles/s41467-024-46082-5).
 
 All bash scripts (i.e. scripts ending with `.sh`) can be run as: `bash script.sh`. All R scripts (i.e. scripts ending with `.R`) can be run as: `Rscript script.R`.
 
