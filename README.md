@@ -20,7 +20,7 @@ This folder contains the main generated data in the course of the preprocessing 
 
 ## Computing environments, software used
 
-All scripts in the `preprocess/` directory were run in a compute cluster with Intel(R) Xeon(R) Gold 6130 CPU, 1535 GB RAM, and running CentOS 7.7.1908 and require a few hours of runtime. All scripts in the `analysis/` directory were run using a MacBook Pro M1 with 16 GB RAM, and running macOS Big Sur 11.7.10 and require a few minutes of runtime.
+All scripts in the `preprocess/` directory were run in a Linux server with dual Intel(R) Xeon(R) Gold 6130 CPU, 1535 GB RAM, and running CentOS 7.7.1908 and require a few hours of runtime. All scripts in the `analysis/` directory were run using a MacBook Pro M1 with 16 GB RAM, and running macOS Big Sur 11.7.10 and require a few minutes of runtime.
 
 The following software were used:
 
