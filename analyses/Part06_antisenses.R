@@ -44,7 +44,7 @@ tss2gene <- tss2gene[rownames(tssM)]
 gene2tss <- structure(names(tss2gene)[!is.na(tss2gene)], names = unname(tss2gene)[!is.na(tss2gene)])
 gene2tss <- gene2tss[!duplicated(names(gene2tss))]
 
-Antisenses$PcTSS <- gene2tss[Antisenses$pcGene]
+Antisenses$pcTSS <- gene2tss[Antisenses$pcGene]
 Antisenses <- Antisenses[order(rowSums(tssM[Antisenses$asTSS, ]), decreasing = TRUE), ]
 
 Antisenses$PCC <- mapply(function(x, y) cor(tssM[x, ], tssM[y, ]),
@@ -58,7 +58,7 @@ gene2symbol[is.na(gene2symbol)] <- names(gene2symbol)[is.na(gene2symbol)]
 Antisenses$pcSymbol <- gene2symbol[Antisenses$pcGene]
 Antisenses$asGene <- structure(TSS_anno$NearestGene, names = TSS_anno$TSS)[Antisenses$asTSS]
 
-Genes <- genes(A11)
+Genes <- genes(makeTxDbFromGFF("Araport11_novel.gff3"))
 gene2size <- structure(width(Genes), names = Genes$gene_id)
 
 Antisenses$SenseSize <- gene2size[Antisenses$pcGene]
@@ -73,7 +73,7 @@ for (i in 1:nrow(Antisenses)) {
 }
 Antisenses$TTS_dist <- Antisenses$SenseSize - Antisenses$TSS_dist
 
-Antisenses$Dist_ratio <- with(Antisenses, pmin(1, SenseSize - TSS_dist) / SenseSize)
+Antisenses$Dist_ratio <- with(Antisenses, pmin(1, (SenseSize - TTS_dist) / SenseSize))
 
 # Proximal TSS: with first half of gene and at least 1 kbp away from gene TTS
 
@@ -90,4 +90,75 @@ readr::write_tsv(Antisenses, "All_antisenses.tsv")
 Antisenses <- Antisenses[!duplicated(Antisenses$pcGene), ]
 
 readr::write_tsv(Antisenses, "Filtered_antisenses.tsv")
+
+# Antisense tables used in the figures -----------------------------------------
+
+FigPairs <- data.frame(row.names = NULL,
+  asTSS = TSSs1_nc$name[queryHits(Nc_ov)],
+  pcGene = gsub("[.]\\d+", "", rep(PcTx_rc$name, 2)[subjectHits(Nc_ov)])
+)
+FigPairs <- FigPairs[!duplicated(FigPairs), ]
+FigPairs$pcTSS <- gene2tss[FigPairs$pcGene]
+FigPairs <- FigPairs[order(rowSums(tssM[FigPairs$asTSS, ]), decreasing = TRUE), ]
+
+readr::write_tsv(FigPairs, "all_antisense_pairs.txt")
+
+FigPairs <- FigPairs[!duplicated(FigPairs$pcGene), ]
+FigPairs$PCC <- mapply(function(x, y) cor(tssM[x, ], tssM[y, ]),
+  FigPairs$asTSS, FigPairs$pcTSS)
+FigPairs <- FigPairs[!is.na(FigPairs$PCC), ]
+
+# Mean CPM per time point
+
+tssMm <- cbind(
+  DS = rowMeans(tssM[, 1:2]),
+  S24 = rowMeans(tssM[, 3:4]),
+  S72 = rowMeans(tssM[, 5:6]),
+  L6 = rowMeans(tssM[, 7:8]),
+  L26 = rowMeans(tssM[, 9:10]),
+  L57 = rowMeans(tssM[, 11:12])
+)
+
+FigAntisenses <- data.frame(row.names = NULL,
+  PcTSS = FigPairs$pcTSS,
+  PcGene = FigPairs$pcGene,
+  PcSymbol = gene2symbol[FigPairs$pcGene],
+  AntisenseTSS = FigPairs$asTSS,
+  AntisenseGene = structure(TSS_anno$NearestGene, names = TSS_anno$TSS)[FigPairs$asTSS],
+  Correlation = FigPairs$PCC,
+  AveragePcAntisenseRatio = NA_real_,
+  MaxPcCPM = matrixStats::rowMaxs(tssMm[FigPairs$pcTSS, ], na.rm = TRUE),
+  MinPcCPM = matrixStats::rowMins(tssMm[FigPairs$pcTSS, ], na.rm = TRUE),
+  MaxAntisenseCPM = matrixStats::rowMaxs(tssMm[FigPairs$asTSS, ], na.rm = TRUE),
+  MinAntisenseCPM = matrixStats::rowMins(tssMm[FigPairs$asTSS, ], na.rm = TRUE)
+)
+FigAntisenses$AntisenseGene[is.na(FigAntisenses$AntisenseGene)] <- ""
+
+# Mean sense/antisense ratio (samples with at least 1 CPM)
+
+for (i in 1:nrow(FigAntisenses)) {
+  i_1 <- tssM[FigAntisenses$PcTSS[i], ]
+  i_2 <- tssM[FigAntisenses$AntisenseTSS[i], ]
+  i_1 <- i_1[i_2 >= 1]
+  i_2 <- i_2[i_2 >= 1]
+  i_2 <- i_2[i_1 >= 1]
+  i_1 <- i_1[i_1 >= 1]
+  FigAntisenses$AveragePcAntisenseRatio[i] <- mean(i_1 / i_2, na.rm = TRUE)
+}
+
+FigAntisenses$MaxPcTimepoint <- colnames(tssMm)[apply(tssMm[FigAntisenses$PcTSS, ], 1, which.max)]
+FigAntisenses$MinPcTimepoint <- colnames(tssMm)[apply(tssMm[FigAntisenses$PcTSS, ], 1, which.min)]
+FigAntisenses$MaxAntisenseTimepoint <-
+  colnames(tssMm)[apply(tssMm[FigAntisenses$AntisenseTSS, ], 1, which.max)]
+FigAntisenses$MinAntisenseTimepoint <-
+  colnames(tssMm)[apply(tssMm[FigAntisenses$AntisenseTSS, ], 1, which.min)]
+
+for (i in colnames(tssMm)) {
+  FigAntisenses[[paste0("PcCPM_", i)]] <- tssMm[FigAntisenses$PcTSS, i]
+}
+for (i in colnames(tssMm)) {
+  FigAntisenses[[paste0("AntisenseCPM_", i)]] <- tssMm[FigAntisenses$AntisenseTSS, i]
+}
+
+readr::write_tsv(FigAntisenses, "Antisenses.txt")
 

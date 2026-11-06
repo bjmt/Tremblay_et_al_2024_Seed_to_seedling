@@ -3,7 +3,7 @@
 # Trimming, mapping, filtering, peak calling and quantification of ATAC-seq data
 
 SAMPLES=("DS1" "DS2" "L61" "L62" "L261" "L262" "L571" "L572")
-GROUPS=("DS" "L6" "L26" "L57")
+GROUP_NAMES=("DS" "L6" "L26" "L57")
 
 mkdir -p atacseq_trimmed
 mkdir -p atacseq_bams
@@ -93,7 +93,7 @@ for i in ${SAMPLES[@]} ; do
 
 done
 
-for i in ${GROUPS[@]} ; do
+for i in ${GROUP_NAMES[@]} ; do
 
   # Merge peaks between replicates and keep those present in both with BEDtools
 
@@ -183,7 +183,7 @@ bedtools makewindows -g chrom.sizes -w 10 > genome_tiled10bp.bed
 
 # Merge replicate coverage in 10 bp bins
 
-for i in ${GROUPS[@]} ; do
+for i in ${GROUP_NAMES[@]} ; do
 
   zcat atacseq_bed1/${i}[12].size1.bed.gz \
     | bedtools sort -i stdin \

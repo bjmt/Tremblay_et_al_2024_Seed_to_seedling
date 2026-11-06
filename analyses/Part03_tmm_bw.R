@@ -21,10 +21,10 @@ chrom.sizes <- read.table("chrom.sizes")
 chrom.sizes <- structure(chrom.sizes$V2, names = chrom.sizes$V1)
 
 for (i in c("DS", "S24", "S72", "L6", "L26", "L57", "hen2", "rrp4")) {
-  bg_plus <- import(paste0("csrnseq_bedGraphs/", i, ".merged.plus.bedGraph.gz"))
-  bg_minus <- import(paste0("csrnaseq_bedGraphs/", i, ".merged.plus.bedGraph.gz"))
-  bg_plus$score <- bg_plus$score * csRNA_tmm[i]
-  bg_minus$score <- bg_minus$score * csRNA_tmm[i]
+  bg_plus <- import(paste0("csrnaseq_bedGraphs/", i, ".merged.plus.bedGraph.gz"))
+  bg_minus <- import(paste0("csrnaseq_bedGraphs/", i, ".merged.minus.bedGraph.gz"))
+  bg_plus$score <- bg_plus$score / 10 * csRNA_tmm[i]
+  bg_minus$score <- -bg_minus$score / 10 * csRNA_tmm[i]
   seqlengths(bg_plus) <- chrom.sizes
   seqlengths(bg_minus) <- chrom.sizes
   export.bw(bg_plus, paste0(i, ".merged.csRNA.plus.bw"))
@@ -32,10 +32,10 @@ for (i in c("DS", "S24", "S72", "L6", "L26", "L57", "hen2", "rrp4")) {
 }
 
 for (i in c("DS", "S24", "S72", "L6", "L26", "L57", "hen2", "rrp4")) {
-  bg_plus <- import(paste0("rnseq_bedGraphs/", i, ".merged.plus.bedGraph.gz"))
-  bg_minus <- import(paste0("rnseq_bedGraphs/", i, ".merged.plus.bedGraph.gz"))
-  bg_plus$score <- bg_plus$score * csRNA_tmm[i]
-  bg_minus$score <- bg_minus$score * csRNA_tmm[i]
+  bg_plus <- import(paste0("rnaseq_bedGraphs/", i, ".merged.plus.bedGraph.gz"))
+  bg_minus <- import(paste0("rnaseq_bedGraphs/", i, ".merged.minus.bedGraph.gz"))
+  bg_plus$score <- bg_plus$score * RNA_tmm[i]
+  bg_minus$score <- -bg_minus$score * RNA_tmm[i]
   seqlengths(bg_plus) <- chrom.sizes
   seqlengths(bg_minus) <- chrom.sizes
   export.bw(bg_plus, paste0(i, ".merged.RNA.plus.bw"))

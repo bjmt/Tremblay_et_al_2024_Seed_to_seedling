@@ -29,6 +29,6 @@ done
 tomtom \
   -oc tomtom \
   -internal \
-  FinalMotifs.meme \
+  Final_motifs.meme \
   PlantTFDB_Ath_TF_binding_motifs.meme
 

@@ -36,13 +36,13 @@ Enhancers <- TSS_anno$TSS[is.na(TSS_anno$NearestTranscriptType) |
 Enhancers <- Enhancers[structure(TSS_anno$TSS_type, names = TSS_anno$TSS)[Enhancers] %in%
   c("unknown_intergenic", "known_tss", "unknown_antisense")]
 Enhancers <- Enhancers[!Enhancers %in% c(Antisenses$pcTSS, Antisenses$asTSS)]
-Enhancers <- Enahncers[!Enhancers %in% c(Divergent_TSS$TSS1, Divergent_TSS$TSS2)]
+Enhancers <- Enhancers[!Enhancers %in% c(Divergent$TSS1, Divergent$TSS2)]
 Enhancers1 <- TSSs1[TSSs1$name %in% Enhancers]
 
 EnhancersACR <- ACRs[overlapsAny(ACRs, Enhancers1)]
 ACR_anno_enh <- ACR_anno[ACR_anno$PeakID %in% EnhancersACR$name, ]
 ACR_anno_enh <- ACR_anno_enh[ACR_anno_enh$Type != "Intragenic", ]
-EnhancersACR <- EnhancersACR[EnhancersACR %in% ACR_anno_enh$PeakID]
+EnhancersACR <- EnhancersACR[EnhancersACR$name %in% ACR_anno_enh$PeakID]
 
 EnhancersACR <- EnhancersACR[!overlapsAny(EnhancersACR, TSSs1[!TSSs1$name %in% Enhancers1$name])]
 EnhancersACR <- EnhancersACR[!overlapsAny(EnhancersACR, DetTx[grepl("^AT", DetTx$name)])]
@@ -90,7 +90,7 @@ Enhancers1 <- Enhancers1[!Enhancers1$name %in% c(Divergent$TSS1, Divergent$TSS2,
 Enhancers1 <- reduce(resize(Enhancers1, 500, "center"))
 Enhancers1 <- Enhancers1[!overlapsAny(Enhancers1, DetTx[grepl("^AT", DetTx$name)],
   ignore.strand = TRUE)]
-Enhancers1$TSS <- as.character(tapply(Enhancers1$name[subjectHits(findOverlaps(,
+Enhancers1$TSS <- as.character(tapply(Enhancers1$name[subjectHits(findOverlaps(
   Enhancers1, Enhancers1_old))], queryHits(findOverlaps(Enhancers1, Enhancers1_old)),
   function(x) paste0(x, collapse = ",")))
 Enhancers1 <- Enhancers1[!overlapsAny(Enhancers1, ACRs)]
@@ -110,7 +110,7 @@ FinalEnhancers$name <- paste0("ENH", as.character(seqnames(FinalEnhancers)),
   "_", round((start(FinalEnhancers) + end(FinalEnhancers)) / 2))
 FinalEnhancers <- FinalEnhancers[!duplicated(FinalEnhancers$name)]
 
-# Perform manual adjustment of enhancers that overlap promoters
+# Enhancers overlapping promoters were adjusted manually in Enhancers_to_fix.bed
 
 TSSs_pc <- TSSs[TSSs$name %in% TSS_anno$TSS[!is.na(TSS_anno$NearestGeneType) &
   TSS_anno$NearestGeneType == "protein_coding"]]
@@ -165,12 +165,12 @@ L57_p <- readr::read_tsv("Enhancer_activities/L57_plus.txt", col_names = FALSE)
 L57_m <- readr::read_tsv("Enhancer_activities/L57_minus.txt", col_names = FALSE)
 
 EnhancerActivity <- as.matrix(data.frame(row.names = DS_p$X1,
-  DS = DS_p$X4 + DS_m$X4,
-  S24 = S24_p$X4 + S24_m$X4,
-  S72 = S72_p$X4 + S72_m$X4,
-  L6 = L6_p$X4 + L6_m$X4,
-  L26 = L26_p$X4 + L26_m$X4,
-  L57 = L57_p$X4 + L57_m$X4
+  DS = DS_p$X4 + abs(DS_m$X4),
+  S24 = S24_p$X4 + abs(S24_m$X4),
+  S72 = S72_p$X4 + abs(S72_m$X4),
+  L6 = L6_p$X4 + abs(L6_m$X4),
+  L26 = L26_p$X4 + abs(L26_m$X4),
+  L57 = L57_p$X4 + abs(L57_m$X4)
 ))
 
 mcols(FinalEnhancers) <- cbind(mcols(FinalEnhancers), EnhancerActivity[FinalEnhancers$name, ])
@@ -213,10 +213,10 @@ for (i in 1:nrow(EnhancerPCC)) {
 EnhancerPCC <- reshape2::melt(EnhancerPCC)
 EnhancerPCC$Var1 <- as.character(EnhancerPCC$Var1)
 EnhancerPCC$Var2 <- as.character(EnhancerPCC$Var2)
-colnames(EnhancersPCC) <- c("pcTSS", "Enhancer", "PCC")
+colnames(EnhancerPCC) <- c("pcTSS", "Enhancer", "PCC")
 
 EnhancerPCC <- EnhancerPCC[substr(EnhancerPCC$pcTSS, 4, 4) == substr(EnhancerPCC$Enhancer, 4, 4), ]
-EnhancerPCC <- EnhancerPCC[abs(as.integer(gsub("TSS\\d_", EnhancerPCC$pcTSS)) - 
+EnhancerPCC <- EnhancerPCC[abs(as.integer(gsub("TSS\\d_", "", EnhancerPCC$pcTSS)) - 
   as.integer(gsub("ENH\\d_", "", EnhancerPCC$Enhancer))) <= 5000, ]
 EnhancerPCC <- EnhancerPCC[!is.na(EnhancerPCC$PCC) & EnhancerPCC$PCC >= 0.5, ]
 EnhancerPCC$Transcript <- structure(TSS_anno$NearestTranscript, names = TSS_anno$TSS)[

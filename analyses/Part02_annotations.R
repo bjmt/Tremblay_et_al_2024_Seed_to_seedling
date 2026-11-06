@@ -17,7 +17,7 @@ Tx <- Tx[, "tx_name"]
 
 # Clean up transcript/gene annotations
 
-MIRs <- A11[grepl("mir", A11$name, ignore.case = TRUE)]
+MIRs <- A11[grepl("mir", A11$Name, ignore.case = TRUE)]
 MIRsV <- vapply(MIRs$Parent,
   function(x) if (!length(x)) NA_character_ else unique(gsub("[.]\\d+", "", x)), character(1))
 MIRsV[is.na(MIRsV)] <- gsub("[.]\\d+", "", MIRs$Derives_from[is.na(MIRsV)])
@@ -53,7 +53,7 @@ Anno <- data.frame(
 TSS_dist <- distanceToNearest(TSSs, Tx_TSS)
 
 Anno$NearestTranscript <- Tx_TSS$tx_name[subjectHits(TSS_dist)]
-Anno$NearestTranscripType <- Tx2LocType[gsub("[.]\\d+", "", Anno$NearestTranscript)]
+Anno$NearestTranscriptType <- Tx2LocType[gsub("[.]\\d+", "", Anno$NearestTranscript)]
 Anno$NearestGeneType <- Tx2GeneType[gsub("[.]\\d+", "", Anno$NearestTranscript)]
 Anno$AbsoluteDistance <- mcols(TSS_dist)$distance
 Anno$RelativeDistance <- Anno$AbsoluteDistance / width(Tx)[subjectHits(TSS_dist)]
@@ -89,12 +89,13 @@ Anno$NearestTranscriptSize <- width(Tx)[subjectHits(TSS_dist)]
 
 # Filter, refine assignments
 
-filter_Anno <- function(x, tofilter) {
+filter_anno <- function(x, tofilter) {
   x$NearestTranscript[tofilter] <- NA_character_
   x$NearestTranscriptType[tofilter] <- NA_character_
   x$NearestGeneType[tofilter] <- NA_character_
   x$AbsoluteDistance[tofilter] <- NA
   x$RelativeDistance[tofilter] <- NA
+  x
 }
 
 Anno <- filter_anno(Anno, Anno$AbsoluteDistance < -500)
@@ -114,8 +115,8 @@ for (i in 1:nrow(Anno)) {
 
 # Peform manual adjustments
 
-if (file.exists("TSS_manual_assignments.txt")) {
-  ma <- readr::read_tsv("TSS_manual_assignments.txt", col_names = FALSE)
+if (file.exists("TSS_manual_assignment.txt")) {
+  ma <- readr::read_tsv("TSS_manual_assignment.txt", col_names = FALSE)
   for (i in 1:nrow(ma)) {
     if (ma[[2]][i] == "none") {
       Anno <- filter_anno(Anno, Anno$TSS == ma[[1]][i])
@@ -134,7 +135,7 @@ if (file.exists("TSS_manual_assignments.txt")) {
         }
       }
       Tx_i <- Tx[Tx$tx_name == ma[[2]][i]]
-      Anno$AbsoluteDistance[Anno$TSS == ma[[1]][i]] <- distance(Tx_i, tss[tss$name == ma[[1]][i]])
+      Anno$AbsoluteDistance[Anno$TSS == ma[[1]][i]] <- distance(Tx_i, TSSs[TSSs$name == ma[[1]][i]])
       Anno$NearestTranscriptSize[Anno$TSS == ma[[1]][i]] <- width(Tx_i)
       Anno$RelativeDistance[Anno$TSS == ma[[1]][i]] <- Anno$AbsoluteDistance[Anno$TSS == ma[[1]][i]] /
         Anno$NearestTranscriptSize[Anno$TSS == ma[[1]][i]]
@@ -159,14 +160,14 @@ names(TSSs) <- TSSs$name
 
 for (i in 1:nrow(Anno)) {
   if (!is.na(Anno$NearestTranscript[i])) next
-  if (!countOverlaps(TSSs[Anno$TSS[i]], Tx, ignore.case = TRUE)) {
+  if (!countOverlaps(TSSs[Anno$TSS[i]], Tx, ignore.strand = TRUE)) {
     Anno$TSS_type[i] <- "unknown_intergenic"
   }
 }
 
 for (i in 1:nrow(Anno)) {
   if (!is.na(Anno$TSS_type[i])) next
-  if (countOverlaps(TSSs[TSSs$TSS[i]], Tx)) {
+  if (countOverlaps(TSSs[Anno$TSS[i]], Tx)) {
     Anno$TSS_type[i] <- "unknown_genic"
   }
 }
@@ -186,23 +187,90 @@ for (i in 1:nrow(Anno)) {
 Anno$NearestGeneType[is.na(Anno$NearestGeneType)] <- Anno$NearestTranscriptType[is.na(Anno$NearestGeneType)]
 Anno$NearestTranscriptType[Anno$NearestTranscriptType == "miRNA_primary_transcript"] <- "miRNA"
 Anno$NearestGeneType[Anno$NearestGeneType == "mirna" | Anno$NearestTranscriptType == "mirna"] <- "miRNA"
+Anno$NearestTranscriptType[Anno$NearestTranscriptType %in% "mirna"] <- "miRNA"
+# Novel transcripts from the RNA-seq are labelled as putative RNAs
+Anno$NearestGeneType[Anno$NearestGeneType %in% "transcript"] <- "putative_rna"
 
 Anno$NearestGene <- gsub("[.]\\d+", "", Anno$NearestTranscript)
 
 Anno$NearestGene[grepl("mir", Anno$NearestTranscript, ignore.case = TRUE)] <- 
   MIRs[Anno$NearestTranscript[grepl("mir", Anno$NearestTranscript, ignore.case = TRUE)]]
 
-readr::write_tsv(Anno, "TSS.annotations.tsv")
+# Add csRNA-seq CPMs and RNA-seq TPMs
 
-Tx_detected <- Tx[Tx$tx_name %in% Anno$NearestFeature]
+AnnoCPMs <- as.data.frame(readr::read_tsv("csRNAseq.quantification.cpm.txt"))
+AnnoTPMs <- as.data.frame(readr::read_tsv("RNAseq.quantifications.tpm.tsv"))
+colnames(AnnoTPMs)[-1] <- paste0("RNAseq_", colnames(AnnoTPMs)[-1])
+
+readr::write_tsv(cbind(Anno,
+    AnnoCPMs[match(Anno$TSS, AnnoCPMs$TSS), -1],
+    AnnoTPMs[match(Anno$NearestTranscript, AnnoTPMs$Transcript), -1]),
+  "TSS.annotations.tsv")
+
+Tx_detected <- Tx[Tx$tx_name %in% Anno$NearestTranscript]
 names(Tx_detected) <- Tx_detected$tx_name
 Tx_detected <- Tx_detected[as.character(strand(Tx_detected)) %in% c("+", "-")]
 export(Tx_detected, "detected.transcripts.bed")
+
+# TSS table used in the figures -------------------------------------------------
+
+OldNames <- c(DS1 = "DS1", DS2 = "DS2", S241 = "I241", S242 = "I242",
+  S721 = "I725", S722 = "I727", L61 = "6H1", L62 = "6H2", L261 = "26H1",
+  L262 = "26H2", L571 = "57H1", L572 = "57H2", hen21 = "H1", hen22 = "H2",
+  rrp41 = "R1", rrp42 = "R2")
+
+# CAGE and GRO-cap at TSSs, GRO-seq over detected transcripts
+
+system("bed2pos.pl tss.shrunk.bed > tmp.tss.pos")
+system("bed2pos.pl detected.transcripts.bed > tmp.tx.pos")
+system(paste("annotatePeaks.pl tmp.tss.pos tair10 -strand + -fragLength 1 -norm 1e6",
+  "-d external_tagDirs/CAGE_14D_merged-tagDir external_tagDirs/GROcap-tagDir > grocap.norm.txt"))
+system(paste("analyzeRepeats.pl tmp.tx.pos tair10 -strand + -tpm",
+  "-d external_tagDirs/GROseq1-tagDir external_tagDirs/GROseq2-tagDir > groseq.tpm.txt"))
+invisible(file.remove("tmp.tss.pos", "tmp.tx.pos"))
+
+GROcap <- readr::read_tsv("grocap.norm.txt")[, c(1, 20:21)]
+colnames(GROcap) <- c("TSS", "CAGE", "GROcap")
+GROseq <- readr::read_tsv("groseq.tpm.txt")[, c(1, 9:10)]
+colnames(GROseq) <- c("Transcript", "GROseq1", "GROseq2")
+
+CPMs <- readr::read_tsv("csRNAseq.quantification.cpm.txt")
+CPMs <- CPMs[, c("TSS", names(OldNames))]
+colnames(CPMs)[-1] <- OldNames
+TPMs <- readr::read_tsv("RNAseq.quantifications.tpm.tsv")
+TPMs <- TPMs[, c("Transcript", names(OldNames))]
+colnames(TPMs)[-1] <- paste0("RNAseq_", OldNames)
+
+TSS_gro <- Anno
+colnames(TSS_gro)[colnames(TSS_gro) == "NearestTranscript"] <- "NearestFeature"
+colnames(TSS_gro)[colnames(TSS_gro) == "NearestTranscriptType"] <- "NearestFeatureType"
+colnames(TSS_gro)[colnames(TSS_gro) == "NearestTranscriptSize"] <- "NearestFeatureSize"
+
+TSS_gro <- dplyr::left_join(TSS_gro, CPMs, by = "TSS")
+TSS_gro <- dplyr::left_join(TSS_gro, TPMs, by = c("NearestFeature" = "Transcript"))
+
+readr::write_tsv(TSS_gro, "tss.annotated.tsv")
+TSS_gro <- readr::read_tsv("tss.annotated.tsv")
+
+TSS_gro <- dplyr::left_join(TSS_gro, GROcap, by = "TSS")
+TSS_gro <- dplyr::left_join(TSS_gro, GROseq, by = c("NearestFeature" = "Transcript"))
+
+TSS_gro <- TSS_gro[, c(1:25, 43, 42, 26:41, 44:45)]
+TSS_gro <- TSS_gro[order(as.integer(substr(TSS_gro$TSS, 4, 4)),
+  as.integer(gsub("TSS\\d_", "", TSS_gro$TSS))), ]
+
+readr::write_tsv(TSS_gro, "tss.annotated.gro.tsv")
 
 # ATAC-seq ---------------------------------------------------------------------
 
 ACRs500 <- import("peaks_final.bed")
 ACRs1 <- import("peaks_final_500bp.bed")
+
+# ACRs are annotated using their centre position
+
+ACRs1 <- resize(ACRs1, 1, "center")
+start(ACRs1) <- start(ACRs1) + 1
+end(ACRs1) <- start(ACRs1)
 
 TSSs1 <- import("tss.size1.bed")
 
@@ -214,11 +282,12 @@ rm(Anno)
 Genes <- genes(TxDb)
 
 TSSs1_prom <- promoters(TSSs1, 400, 100)
-MissingTSS <- resize(Tx[!Tx_name %in% AnnoTSS$NearestTranscript], 1, "start")
+AllTx <- transcripts(TxDb)
+MissingTSS <- resize(AllTx[!AllTx$tx_name %in% AnnoTSS$NearestTranscript], 1, "start")
 colnames(mcols(MissingTSS)) <- c("id", "name")
 MissingProm <- promoters(MissingTSS, 400, 100)
 
-AllProms <- sort(c(TSSs1_prom, MissingTSS[!overlapsAny(MissingProm, TSSs1_prom)]))
+AllProms <- sort(c(TSSs1_prom, MissingProm[!overlapsAny(MissingProm, TSSs1_prom)]))
 
 Genes_detected <- Genes[Genes$gene_id %in% AnnoTSS$NearestGene]
 
@@ -254,7 +323,7 @@ ACRsPromOvs <- tapply(TSSs1_prom$name[subjectHits(ACRsPromOvs)], queryHits(ACRsP
   function(x) paste0(unique(x), collapse = "/"))
 Anno$OverlappingProm[as.integer(names(ACRsPromOvs))] <- unname(ACRsPromOvs)
 
-ACRsPromAllOvs <- findOverlaps(ACRs, AllProms)
+ACRsPromAllOvs <- findOverlaps(ACRs1, AllProms)
 ACRsPromAllOvs <- tapply(AllProms$name[subjectHits(ACRsPromAllOvs)], queryHits(ACRsPromAllOvs),
   function(x) paste0(unique(x), collapse = "/"))
 Anno$OverlappingProm_any[as.integer(names(ACRsPromAllOvs))] <- unname(ACRsPromAllOvs)
@@ -270,4 +339,3 @@ ACRsTEOvs <- tapply(TEs$ID[subjectHits(ACRsTEOvs)], queryHits(ACRsTEOvs),
 Anno$OverlappingTE[as.integer(names(ACRsTEOvs))] <- unname(ACRsTEOvs)
 
 readr::write_tsv(Anno, "ACR.annotations.tsv")
-

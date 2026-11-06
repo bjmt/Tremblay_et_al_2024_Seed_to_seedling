@@ -4,7 +4,7 @@
 
 
 Anno <- readr::read_tsv("TSS.annotations.tsv")
-Tss1 <- import("TSSs_size1.bed")
+Tss1 <- import("tss.size1.bed")
 
 cs_L57_H <- read.table("csRNAseq.DE.L57_hen2.txt", header = TRUE, sep = "\t")
 cs_L57_R <- read.table("csRNAseq.DE.L57_rrp4.txt", header = TRUE, sep = "\t")

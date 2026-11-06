@@ -4,19 +4,19 @@
 
 set -ex
 
-GROUPS=("DS" "S24" "S72" "L6" "L26" "L57")
+GROUP_NAMES=("DS" "S24" "S72" "L6" "L26" "L57")
 
 mkdir -p Enhancer_activities
 
-for i in ${GROUPS[@]} ; do
+for i in ${GROUP_NAMES[@]} ; do
 
   bigWigAverageOverBed \
-    csrnaseq_bw/${i}.merged.plus.bw \
+    ${i}.merged.csRNA.plus.bw \
     Final_enhancers_500bp.bed \
     Enhancer_activities/${i}_plus.txt
 
   bigWigAverageOverBed \
-    csrnaseq_bw/${i}.merged.minus.bw \
+    ${i}.merged.csRNA.minus.bw \
     Final_enhancers_500bp.bed \
     Enhancer_activities/${i}_minus.txt
 

@@ -1,0 +1,16 @@
+Package: trackvizir
+Title: Sequence track data plotter
+Version: 0.0.1
+Authors@R: 
+    person(given = c("Benjamin", "Jean-Marie"),
+           family = "Tremblay",
+           role = c("aut", "cre"),
+           email = "benjmtremblay@gmail.com",
+           comment = c(ORCID = "0000-0002-7441-2951"))
+Description: Plot sequence track data with ggplot2
+Imports: grid, ggplot2, IRanges, GenomicRanges, cowplot, rtracklayer,
+    RcppRoll, GenomicFeatures
+License: GPL-3
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1

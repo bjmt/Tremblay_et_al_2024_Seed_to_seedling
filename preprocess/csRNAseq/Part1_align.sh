@@ -3,7 +3,7 @@
 # Trimming, mapping, Tag directory and bedGraph creation for the (cs)RNA-seq
 
 SAMPLES=("DS1" "DS2" "S241" "S242" "S721" "S722" "L61" "L62" "L261" "L262" "L571" "L572" "hen21" "hen22" "rrp41" "rrp42")
-GROUPS=("DS" "S24" "S72" "L6" "L26" "L57" "hen2" "rrp4")
+GROUP_NAMES=("DS" "S24" "S72" "L6" "L26" "L57" "hen2" "rrp4")
 
 mkdir -p srnaseq_trimmed
 mkdir -p srnaseq_bams
@@ -114,7 +114,7 @@ done
 
 # Get replicate-merged bedGraphs:
 
-for i in ${GROUPS[@]} ; do
+for i in ${GROUP_NAMES[@]} ; do
 
   samtools merge csrnaseq_bams_filtered/${i}.merged.bam \
     csrnaseq_bams_filtered/${i}[12].filtered.bam
@@ -133,13 +133,36 @@ for i in ${GROUPS[@]} ; do
 
 done
 
+for i in ${GROUP_NAMES[@]} ; do
+
+  makeTagDirectory srnaseq_tagDirs/${i}.merged-tagDir/ \
+    -d srnaseq_tagDirs/${i}[12]-tagDir/
+
+  makeUCSCfile srnaseq_tagDirs/${i}.merged-tagDir/ \
+    -style rnaseq -norm 1e6 -strand + > srnaseq_bedGraphs/${i}.merged.plus.bedGraph
+  gzip -f srnaseq_bedGraphs/${i}.merged.plus.bedGraph
+
+  makeUCSCfile srnaseq_tagDirs/${i}.merged-tagDir/ \
+    -style rnaseq -norm 1e6 -strand - > srnaseq_bedGraphs/${i}.merged.minus.bedGraph
+  gzip -f srnaseq_bedGraphs/${i}.merged.minus.bedGraph
+
+  makeUCSCfile srnaseq_tagDirs/${i}.merged-tagDir/ \
+    -style tss -norm 1e6 -strand + > srnaseq_bedGraphs/${i}.merged.tss.plus.bedGraph
+  gzip -f srnaseq_bedGraphs/${i}.merged.tss.plus.bedGraph
+
+  makeUCSCfile srnaseq_tagDirs/${i}.merged-tagDir/ \
+    -style tss -norm 1e6 -strand - > srnaseq_bedGraphs/${i}.merged.tss.minus.bedGraph
+  gzip -f srnaseq_bedGraphs/${i}.merged.tss.minus.bedGraph
+
+done
+
 # RNA-seq:
 
 for i in ${SAMPLES[@]} ; do
 
   # Trim raw reads with HOMER
 
-  homerTools trim
+  homerTools trim \
     -3 AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC \
     -mis 2 \
     -minMatchLength 4 \
@@ -201,7 +224,7 @@ done
 
 # Get replicate-merged bedGraphs:
 
-for i in ${GROUPS[@]} ; do
+for i in ${GROUP_NAMES[@]} ; do
 
   samtools merge rnaseq_bams/${i}.merged.bam \
     rnaseq_bams/${i}[12].sorted.bam
@@ -213,5 +236,31 @@ for i in ${GROUPS[@]} ; do
     --outWigNorm RPM \
     --outFileNamePrefix rnaseq_bedGraphs/${i}.merged.
 
+  mv rnaseq_bedGraphs/${i}.merged.Signal.Unique.str2.out.bg \
+    rnaseq_bedGraphs/${i}.merged.plus.bedGraph
+  mv rnaseq_bedGraphs/${i}.merged.Signal.Unique.str1.out.bg \
+    rnaseq_bedGraphs/${i}.merged.minus.bedGraph
+  gzip -f rnaseq_bedGraphs/${i}.merged.plus.bedGraph \
+    rnaseq_bedGraphs/${i}.merged.minus.bedGraph
+
 done
 
+
+# Count RNA-seq reads per chromosome
+
+COUNT_NAMES=("DS1" "DS2" "I241" "I242" "I725" "I727" "6H1" "6H2" "26H1" "26H2" "57H1" "57H2" "H1" "H2" "R1" "R2")
+
+mkdir -p read-counts
+
+for k in ${!SAMPLES[@]} ; do
+
+  samtools index rnaseq_bams/${SAMPLES[$k]}.sorted.bam
+
+  printf "chr\tcount\n" > read-counts/${COUNT_NAMES[$k]}_total.tsv
+
+  for j in Pt Mt 1 2 3 4 5 ; do
+    printf "${j}\t%s\n" `samtools view -c rnaseq_bams/${SAMPLES[$k]}.sorted.bam ${j}` \
+      >> read-counts/${COUNT_NAMES[$k]}_total.tsv
+  done
+
+done

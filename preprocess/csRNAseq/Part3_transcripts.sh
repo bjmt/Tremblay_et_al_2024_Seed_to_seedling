@@ -2,12 +2,12 @@
 #
 # De novo transcript identification and quantification
 
-GROUPS=("DS" "S24" "S72" "L6" "L26" "L57" "hen2" "rrp4")
+GROUP_NAMES=("DS" "S24" "S72" "L6" "L26" "L57" "hen2" "rrp4")
 
 mkdir rnaseq_denovo
 mkdir rnaseq_quantification
 
-for i in ${GROUPS[@]} ; do
+for i in ${GROUP_NAMES[@]} ; do
 
   # Merge replicate RNA-seq BAMs with samtools
 
@@ -57,7 +57,7 @@ gffcompare -r Araport11_GFF3_genes_transposons.gff3 \
 awk '{print $1,$3,$6,"TSS"}' csrnaseq_TSSs_final/tss.size1.bed \
   > rnaseq_denovo/tss.pos
 
-for i in ${GROUPS[@]} ;
+for i in ${GROUP_NAMES[@]} ; do
 
   # Find new transcripts with StringTie
 
@@ -69,7 +69,7 @@ for i in ${GROUPS[@]} ;
     -C rnaseq_denovo/${i}.stringtie_cov_refs.gtf \
     -A rnaseq_denovo/${i}.stringtie_gene_abund.txt
 
-do
+done
 
 # merge StringTie transcripts with gffcompare, remove overlaps with existing annotations
 
@@ -106,7 +106,7 @@ rm Araport11_novel.unsorted.gff3
 
 # Quantify all transcripts with StringTie
 
-for i in ${GROUPS[@]} ; do
+for i in ${GROUP_NAMES[@]} ; do
   for j in 1 2 ; do
 
     stringtie rnaseq_bams/${i}${j}.sorted.bam \
@@ -133,3 +133,11 @@ tr ',' '\t' < rnaseq_quantification/gene_counts.csv \
 tr ',' '\t' < rnaseq_quantification/transcript_counts.csv \
   > rnaseq_quantification/transcript_counts.tsv
 
+
+# Remove de novo transcripts without a defined strand
+
+grep -v "STRINGTIE_RNA_00037797" Araport11_novel.gff3 \
+  | grep -v "STRINGTIE_RNA_00125423" \
+  | grep -v "STRINGTIE_RNA_00139708" \
+  > Araport11_novel.fixed.gff3
+mv Araport11_novel.fixed.gff3 Araport11_novel.gff3

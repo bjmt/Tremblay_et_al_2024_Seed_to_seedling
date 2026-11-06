@@ -171,7 +171,7 @@ get_stranded_signal <- function(signal, windows, score.col = "score",
       c(matrixStats::rowMaxs(pos_pos, na.rm = TRUE) -
         matrixStats::rowMins(pos_pos, na.rm = TRUE),
         matrixStats::rowMaxs(neg_neg, na.rm = TRUE) -
-          matrixStats::rowMins(neg_eg, na.rm = TRUE)),
+          matrixStats::rowMins(neg_neg, na.rm = TRUE)),
       p = use.pctile, na.rm = TRUE)
     thresh_antisense <- quantile(
       c(matrixStats::rowMaxs(neg_pos, na.rm = TRUE) -

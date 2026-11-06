@@ -28,7 +28,10 @@ m <- m[, c("DS1", "DS2", "S241", "S242", "S721", "S722",
   "L61", "L62", "L261", "L262", "L571", "L572", "hen21", "hen22", "rrp41", "rrp42")]
 mode(m) <- "integer"
 
-y <- DGEList(counts = m, group = gsub("[12]$", "", colnames(m)))
+# Group order used by the contrasts below
+
+y <- DGEList(counts = m, group = factor(gsub("[12]$", "", colnames(m)),
+  levels = c("L26", "L57", "L6", "DS", "hen2", "S24", "S72", "rrp4")))
 y <- calcNormFactors(y)
 
 # Save TMM normalization factors for creating normalized bigWigs
@@ -46,7 +49,7 @@ readr::write_tsv(cbind(TSS = rownames(m_cpm), data.frame(m_cpm, check.names = FA
 
 d <- model.matrix(~0+y$samples$group)
 y <- estimateDisp(y, d)
-fit <- glmQLFit(y, d)
+fit <- glmQLFit(y, d, legacy = TRUE)
 
 DS_S24 <- glmQLFTest(fit, contrast = c(0, 0, 0, -1, 0, 1, 0, 0))
 S24_S72 <- glmQLFTest(fit, contrast = c(0, 0, 0, 0, 0, -1, 1, 0))
@@ -89,8 +92,9 @@ Transcript_counts <- as.matrix(read.table("transcript_counts.tsv", row.names = 1
 
 # Note: Make sure the order of samples is correct, reorder if not!!
 
-y <- DGEList(counts = Transcript_counts, group = gsub("[12]$", "", colnames(Transcript_counts)))
-y <- y_transcripts[filterByExpr(y, group = y$samples$group), , keep.lib.size = FALSE]
+y <- DGEList(counts = Transcript_counts, group = factor(gsub("[12]$", "",
+  colnames(Transcript_counts)), levels = c("L26", "L57", "L6", "DS", "hen2", "S24", "S72", "rrp4")))
+y <- y[filterByExpr(y, group = y$samples$group), , keep.lib.size = FALSE]
 y <- calcNormFactors(y)
 
 # Save TMM normalization factors for creating normalized bigWigs
@@ -102,7 +106,7 @@ write.table(y$samples, "RNAseq.norm_factors.txt", quote = FALSE, sep = "\t")
 
 d <- model.matrix(~0+y$samples$group)
 y <- estimateDisp(y, d)
-fit <- glmQLFit(y, d)
+fit <- glmQLFit(y, d, legacy = TRUE)
 
 L57_H <- glmQLFTest(fit, contrast = c(0, -1, 0, 0, 1, 0, 0, 0))
 L57_R <- glmQLFTest(fit, contrast = c(0, -1, 0, 0, 0, 0, 0, 1))
@@ -128,7 +132,7 @@ lens_tx <- data.frame(row.names = lens_tx$tx_name, Length = lens_tx$tx_len)
 
 y$genes <- lens_tx[rownames(y$counts), , drop = FALSE]
 
-rpkm_transcripts <- rpkm(y_transcripts)
+rpkm_transcripts <- rpkm(y)
 tpm_transcripts <- t(t(rpkm_transcripts) / colSums(rpkm_transcripts, na.rm = TRUE)) * 1e6
 tpm_transcripts <- tpm_transcripts[complete.cases(tpm_transcripts), ]
 
@@ -161,3 +165,54 @@ readr::write_tsv(cbind(PeakID = rownames(m_cpm),
   as.data.frame(m_cpm)), "ATACseq.quantification.rpm.txt")
 
 
+
+# Fold change tables used in the figures ---------------------------------------
+
+Contrasts <- list(
+  DS_S24 = c(0, 0, 0, -1, 0, 1, 0, 0),
+  S24_S72 = c(0, 0, 0, 0, 0, -1, 1, 0),
+  S72_L6 = c(0, 0, 1, 0, 0, 0, -1, 0),
+  L6_L26 = c(1, 0, -1, 0, 0, 0, 0, 0),
+  L26_L57 = c(-1, 1, 0, 0, 0, 0, 0, 0),
+  L57_H = c(0, -1, 0, 0, 1, 0, 0, 0),
+  L57_R = c(0, -1, 0, 0, 0, 0, 0, 1),
+  H_R = c(0, 0, 0, 0, -1, 0, 0, 1)
+)
+
+get_fc_tables <- function(counts, filter = FALSE) {
+  counts <- counts[, c("DS1", "DS2", "S241", "S242", "S721", "S722", "L61", "L62",
+    "L261", "L262", "L571", "L572", "hen21", "hen22", "rrp41", "rrp42")]
+  y <- DGEList(counts = counts, group = factor(gsub("[12]$", "", colnames(counts)),
+    levels = c("L26", "L57", "L6", "DS", "hen2", "S24", "S72", "rrp4")))
+  if (filter) y <- y[filterByExpr(y, group = y$samples$group), , keep.lib.size = FALSE]
+  y <- calcNormFactors(y)
+  d <- model.matrix(~0+y$samples$group)
+  y <- estimateDisp(y, d)
+  fit <- glmQLFit(y, d, legacy = TRUE)
+  FCs <- matrix(NA_real_, nrow = nrow(y), ncol = length(Contrasts),
+    dimnames = list(rownames(y), names(Contrasts)))
+  FDRs <- FCs
+  for (i in names(Contrasts)) {
+    res <- as.data.frame(topTags(glmQLFTest(fit, contrast = Contrasts[[i]]), Inf))
+    FCs[, i] <- res[rownames(FCs), "logFC"]
+    FDRs[, i] <- res[rownames(FCs), "FDR"]
+  }
+  list(FC = FCs, FDR = FDRs)
+}
+
+dir.create("tss-quant-qnorm", showWarnings = FALSE)
+dir.create("total-quant", showWarnings = FALSE)
+
+FC_tables <- get_fc_tables(m)
+write.table(FC_tables$FC, "tss-quant-qnorm/Log2FoldChanges.txt", quote = FALSE, sep = "\t")
+write.table(FC_tables$FDR, "tss-quant-qnorm/Log2FoldChangesFDR.txt", quote = FALSE, sep = "\t")
+
+FC_tables <- get_fc_tables(Transcript_counts, filter = TRUE)
+write.table(FC_tables$FC, "total-quant/Log2FoldChanges.txt", quote = FALSE, sep = "\t")
+write.table(FC_tables$FDR, "total-quant/Log2FoldChangesFDR.txt", quote = FALSE, sep = "\t")
+
+# ATAC-seq CPM table used in the figures
+
+ATAC_cpm <- m_cpm[, c("DS1", "DS2", "L61", "L62", "L261", "L262", "L571", "L572")]
+colnames(ATAC_cpm) <- c("DS1", "DS2", "6H1", "6H2", "26H1", "26H2", "57H1", "57H2")
+write.table(ATAC_cpm, "ATAC_peaks_cpm_fixed.txt", quote = FALSE, sep = "\t")

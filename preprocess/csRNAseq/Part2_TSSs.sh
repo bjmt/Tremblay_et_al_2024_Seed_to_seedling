@@ -3,7 +3,7 @@
 # Calling TSS peaks
 
 SAMPLES=("DS1" "DS2" "S241" "S242" "S721" "S722" "L61" "L62" "L261" "L262" "L571" "L572" "hen21" "hen22" "rrp41" "rrp42")
-GROUPS=("DS" "S24" "S72" "L6" "L26" "L57" "hen2" "rrp4")
+GROUP_NAMES=("DS" "S24" "S72" "L6" "L26" "L57" "hen2" "rrp4")
 
 mkdir -p csrnaseq_TSSs
 mkdir -p csrnaseq_TSSs_final
@@ -28,7 +28,7 @@ for i in ${SAMPLES[@]} ; do
 
 done
 
-for i in ${GROUPS[@]} ; do
+for i in ${GROUP_NAMES[@]} ; do
 
   # Merge peaks between replicates with HOMER, only keep those present in both
 
