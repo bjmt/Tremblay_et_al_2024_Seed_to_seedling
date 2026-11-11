@@ -291,6 +291,23 @@ Heatmap(mnase_div,
 )
 dev.off()
 
+# ATAC-seq (L57)
+# Note: the original code for this heatmap was lost, this is a recreation to
+# reproduce the published heatmap near exactly
+
+atac_57 <- import(ATAC_L57_BW)
+
+atac_div <- get_unstranded_signal(atac_57, promoters(divBed, 2000, 1000), keep=c(0.,.9),
+  return.matrix=TRUE)
+
+pdf("Figure6/Fig6d_div_atac.pdf", width = 2, height = 1.72)
+draw(Heatmap(atac_div,
+  show_row_names = FALSE, show_column_names = FALSE, use_raster=T,raster_quality=3,
+  col=viridisLite::plasma(100,begin=0),
+  cluster_rows = FALSE, cluster_columns= FALSE
+))
+dev.off()
+
 # Figure 6g --------------------------------------------------------------------
 
 qpcr <- readxl::read_xlsx(QPCR_AT1G04170)

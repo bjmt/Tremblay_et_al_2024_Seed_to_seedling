@@ -13,8 +13,6 @@ The genome browser tracks were made using the `trackvizir` package included in t
 | `Figure5.R` | 5a, 5b, 5d-g, S5a, S5c-j, S6a-k |
 | `Figure6.R` | 6a-d, 6g, 6h, S7a-i, S8b, S8e, S8f |
 | `Figure7.R` | 7a, 7f, S9a-i, S9k, S9l, S10b, S10d, S10f, S10g, S10j, S10k |
-| `Figure5e.R`* | 5e (MNase-seq heatmaps) |
-| `Figure6d.R`* | 6d (ATAC-seq heatmap) |
 | `SupplementaryFigure10hi.R`* | S10h, S10i (table contents) |
 | `SupplementaryFigure14.R`* | S14a-d |
 | `SupplementaryFigure15.R`* | S15a, S15b |
